@@ -9,6 +9,7 @@ export default function Page6({ theme, onBack }) {
   // lista
   const [pokemons, setPokemons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // formulário
   const [editingId, setEditingId] = useState(null); // null = criando, number = editando
@@ -66,6 +67,10 @@ export default function Page6({ theme, onBack }) {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const filteredPokemons = pokemons.filter((p) =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const buildPayload = () => {
     // transforma campos de texto em arrays/objetos
@@ -258,6 +263,14 @@ export default function Page6({ theme, onBack }) {
         {/* LISTA */}
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.subtle, marginTop: 16 }]}>
           <Text style={[styles.title, { color: theme.text }]}>Lista</Text>
+          {/* Barra de pesquisa */}
+          <TextInput
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            placeholder="Pesquise pelo nome…"
+            placeholderTextColor={theme.subtle}
+            style={[styles.input, { marginBottom: 12, color: theme.text, borderColor: theme.subtle }]}
+          />
           {loading ? (
             <View style={{ alignItems: 'center', paddingVertical: 16 }}>
               <ActivityIndicator />
@@ -265,20 +278,20 @@ export default function Page6({ theme, onBack }) {
             </View>
           ) : (
             <View>
-              {pokemons.map((p) => (
-                <View key={p.id} style={[styles.rowBetween, { borderBottomWidth: 1, borderColor: theme.subtle, paddingVertical: 10 }]}>
+              {filteredPokemons.map((p) => (
+                <View key={p.id} style={[styles.rowBetween, { borderBottomWidth: 1, borderColor: theme.subtle, paddingVertical: 10 }]}> 
                   <Text style={{ color: theme.text, fontWeight: '600' }}>{p.id}. {p.name}</Text>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pressable onPress={() => handleEdit(p)} style={[styles.smallBtn, { borderColor: theme.subtle }]}>
+                    <Pressable onPress={() => handleEdit(p)} style={[styles.smallBtn, { borderColor: theme.subtle }]}> 
                       <Text style={{ color: theme.text }}>Editar</Text>
                     </Pressable>
-                    <Pressable onPress={() => handleDelete(p)} style={[styles.smallBtn, { borderColor: theme.subtle }]}>
+                    <Pressable onPress={() => handleDelete(p)} style={[styles.smallBtn, { borderColor: theme.subtle }]}> 
                       <Text style={{ color: theme.text }}>Excluir</Text>
                     </Pressable>
                   </View>
                 </View>
               ))}
-              {!pokemons.length && (
+              {!filteredPokemons.length && (
                 <Text style={{ color: theme.text, opacity: 0.7, marginTop: 8 }}>Nenhum registro.</Text>
               )}
             </View>
