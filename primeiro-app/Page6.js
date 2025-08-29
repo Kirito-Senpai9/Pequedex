@@ -1,14 +1,10 @@
 // Page6.js — Tela de CRUD completo (Criar, Listar, Editar, Excluir) com todos os campos
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, Platform, ScrollView, ActivityIndicator, Alert,
+  View, Text, TextInput, Pressable, StyleSheet, Platform, ScrollView, Alert,
 } from 'react-native';
-import { api } from './api';
 
-export default function Page6({ theme, onBack }) {
-  // lista
-  const [pokemons, setPokemons] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function Page6({ theme, onBack, pokemons, setPokemons }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   // formulário
@@ -49,24 +45,8 @@ export default function Page6({ theme, onBack }) {
     setSpeed(String(p?.stats?.speed ?? 10));
     setHeight(String(p?.height ?? 0.4));
     setWeight(String(p?.weight ?? 6));
-    setSpriteUrl(String(p?.sprites?.front_default ?? ''));
+    setSpriteUrl(String(p?.sprites?.frontDefault ?? ''));
   };
-
-  const fetchAll = async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/pokemons');
-      setPokemons(data);
-    } catch (e) {
-      console.log('Erro ao carregar lista:', e?.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
 
   const filteredPokemons = pokemons.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -85,7 +65,7 @@ export default function Page6({ theme, onBack }) {
       speed: Number(speed) || 0,
     };
     const sprites = {};
-    if (spriteUrl.trim()) sprites.front_default = spriteUrl.trim();
+    if (spriteUrl.trim()) sprites.frontDefault = spriteUrl.trim();
 
     return {
       name: name.trim(),
@@ -98,7 +78,7 @@ export default function Page6({ theme, onBack }) {
     };
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     const payload = buildPayload();
 
     if (!payload.name) {
@@ -110,24 +90,18 @@ export default function Page6({ theme, onBack }) {
       return;
     }
 
-    try {
-      if (editingId) {
-        // EDITAR
-        const { data } = await api.put(`/pokemons/${editingId}`, payload);
-        // atualiza lista local
-        setPokemons(prev => prev.map(p => (p.id === data.id ? data : p)));
-        Alert.alert('Sucesso', `Pokémon "${data.name}" atualizado!`);
-      } else {
-        // CRIAR
-        const { data } = await api.post('/pokemons', payload);
-        setPokemons(prev => [data, ...prev]);
-        Alert.alert('Sucesso', `Pokémon "${data.name}" criado!`);
-      }
-      resetForm();
-    } catch (e) {
-      console.log('Erro ao salvar:', e?.message);
-      Alert.alert('Erro', 'Não foi possível salvar. Verifique o backend.');
+    if (editingId) {
+      setPokemons(prev => prev.map(p => (p.id === editingId ? { ...p, ...payload, id: editingId } : p)));
+      Alert.alert('Sucesso', `Pokémon "${payload.name}" atualizado! (somente local)`);
+    } else {
+      setPokemons(prev => {
+        const newId = prev.length > 0 ? Math.max(...prev.map(p => p.id)) + 1 : 1;
+        const data = { id: newId, ...payload };
+        return [data, ...prev];
+      });
+      Alert.alert('Sucesso', `Pokémon "${payload.name}" criado! (somente local)`);
     }
+    resetForm();
   };
 
   const handleEdit = (p) => {
@@ -143,16 +117,10 @@ export default function Page6({ theme, onBack }) {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.delete(`/pokemons/${p.id}`);
-              setPokemons(prev => prev.filter(x => x.id !== p.id));
-              if (editingId === p.id) resetForm();
-              Alert.alert('Excluído', `"${p.name}" foi removido.`);
-            } catch (e) {
-              console.log('Erro ao excluir:', e?.message);
-              Alert.alert('Erro', 'Não foi possível excluir. Verifique o backend.');
-            }
+          onPress: () => {
+            setPokemons(prev => prev.filter(x => x.id !== p.id));
+            if (editingId === p.id) resetForm();
+            Alert.alert('Excluído', `"${p.name}" foi removido. (somente local)`);
           }
         }
       ]
@@ -171,8 +139,11 @@ export default function Page6({ theme, onBack }) {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <Text style={{ color: theme.text, opacity: 0.7, marginBottom: 8 }}>
+          Alterações não são persistidas (dados via PokeAPI).
+        </Text>
         {/* FORMULÁRIO */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.subtle }]}>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.subtle }]}> 
           <Text style={[styles.title, { color: theme.text }]}>{editingId ? 'Editar Pokémon' : 'Novo Pokémon'}</Text>
 
           <Text style={[styles.label, { color: theme.text }]}>Nome *</Text>
@@ -270,13 +241,7 @@ export default function Page6({ theme, onBack }) {
             placeholder="Pesquise pelo nome…"
             placeholderTextColor={theme.subtle}
             style={[styles.input, { marginBottom: 12, color: theme.text, borderColor: theme.subtle }]}
-          />
-          {loading ? (
-            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-              <ActivityIndicator />
-              <Text style={{ color: theme.text, marginTop: 8 }}>Carregando...</Text>
-            </View>
-          ) : (
+            />
             <View>
               {filteredPokemons.map((p) => (
                 <View key={p.id} style={[styles.rowBetween, { borderBottomWidth: 1, borderColor: theme.subtle, paddingVertical: 10 }]}> 
@@ -295,8 +260,7 @@ export default function Page6({ theme, onBack }) {
                 <Text style={{ color: theme.text, opacity: 0.7, marginTop: 8 }}>Nenhum registro.</Text>
               )}
             </View>
-          )}
-        </View>
+          </View>
       </ScrollView>
     </View>
   );
