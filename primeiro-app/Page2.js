@@ -82,6 +82,7 @@ export default function Page2({
   handleToggleTheme,
   selectionMode,
   handleSelectPokemon,
+  error,
 }) {
   const [selectedPokemon, setSelectedPokemon] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -191,7 +192,9 @@ export default function Page2({
         )}
         ListEmptyComponent={() => (
           <View style={styles.statusContainer}>
-            <Text style={[styles.statusText, { color: theme.text }]}>Nenhum Pokémon encontrado.</Text>
+            <Text style={[styles.statusText, { color: theme.text }]}>
+              {error || 'Nenhum Pokémon encontrado.'}
+            </Text>
           </View>
         )}
       />

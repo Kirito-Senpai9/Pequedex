@@ -13,7 +13,7 @@ import Page6 from './Page6'; // <<< NOVO
 import AnimatedBackground from './AnimatedBackground';
 import { typography } from './styles/typography';
 
-import { api } from './api';
+import { fetchAllPokemons } from './services/pokeapi';
 
 const lightTheme = { bg: 'transparent', card: 'rgba(255, 255, 255, 0.85)', primary: '#EF4444', text: '#111827', subtle: '#9CA3AF' };
 const darkTheme = { bg: 'transparent', card: 'rgba(31, 41, 55, 0.85)', primary: '#FBBF24', text: '#F9FAFB', subtle: '#778DA9' };
@@ -41,8 +41,6 @@ export default function App() {
   const [showContinue, setShowContinue] = useState(false);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedPokemon, setSelectedPokemon] = useState(null);
   const [showBalls, setShowBalls] = useState(false);
   const [pokemon1, setPokemon1] = useState(null);
   const [pokemon2, setPokemon2] = useState(null);
@@ -52,12 +50,21 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [filteredPokemons, setFilteredPokemons] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.get('/pokemons')
-      .then(({ data }) => { setPokemons(data); setFilteredPokemons(data); })
-      .catch(err => console.log('Falha ao buscar Pokémon:', err?.message))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const data = await fetchAllPokemons(1000);
+        setPokemons(data);
+        setFilteredPokemons(data);
+      } catch (e) {
+        console.log('Falha ao buscar Pokémon da PokeAPI:', e?.message);
+        setError('Falha ao carregar Pokémon.');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -126,7 +133,6 @@ export default function App() {
     else setWinner(null);
     setPage(5);
   };
-  const handleLongPressPokemon = (pokemon) => { setSelectedPokemon(pokemon); setModalVisible(true); };
 
   const renderPage = () => {
     switch (page) {
@@ -152,16 +158,11 @@ export default function App() {
                 loading,
                 searchQuery,
                 setSearchQuery,
-                handleLongPressPokemon,
-                handleCloseModal: () => setModalVisible(false),
-                selectedPokemon,
-                modalVisible,
                 handleToggleTheme,
                 handleBackPage1,
                 selectionMode,
                 handleSelectPokemon,
-                setSelectedPokemon,
-                setModalVisible,
+                error,
               }}
             />
           </View>
@@ -173,7 +174,7 @@ export default function App() {
       case 5:
         return <Page5 {...{theme, handleBackPage4, pokemon1, pokemon2, winner}} />;
       case 6:
-        return <Page6 theme={theme} onBack={() => setPage(2)} />; // <<< RENDERIZA O CRUD COMPLETO
+        return <Page6 theme={theme} pokemons={pokemons} setPokemons={setPokemons} onBack={() => setPage(2)} />; // <<< RENDERIZA O CRUD COMPLETO
       default:
         return null;
     }
