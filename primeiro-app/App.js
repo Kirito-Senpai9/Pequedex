@@ -1,6 +1,6 @@
 // App.js — adiciona Page6 para CRUD completo e botão na Page2 para navegar
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, Pressable, Animated, SafeAreaView, Dimensions, Platform } from 'react-native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 
@@ -48,24 +48,35 @@ export default function App() {
   const [winner, setWinner] = useState(null);
   const [pokemons, setPokemons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filteredPokemons, setFilteredPokemons] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await listPokemons();
-        setPokemons(data);
-        setFilteredPokemons(data);
-      } catch (e) {
-        console.log('Falha ao buscar Pokémon:', e?.message);
-        setError('Falha ao carregar Pokémon.');
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async ({ fresh = false } = {}) => {
+    try {
+      if (!fresh) setLoading(true);
+      const data = await listPokemons({ fresh });
+      setPokemons(Array.isArray(data) ? data : []);
+      setFilteredPokemons(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (e) {
+      console.log('Falha ao buscar Pokémon:', e?.message);
+      setError('Falha ao carregar Pokémon.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load({ fresh: true });
+  }, [load]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load({ fresh: true });
+  }, [load]);
 
   useEffect(() => {
     if (searchQuery === '') setFilteredPokemons(pokemons);
@@ -156,6 +167,7 @@ export default function App() {
                 theme,
                 pokemons: filteredPokemons,
                 loading,
+                refreshing,
                 searchQuery,
                 setSearchQuery,
                 handleToggleTheme,
@@ -163,6 +175,7 @@ export default function App() {
                 selectionMode,
                 handleSelectPokemon,
                 error,
+                onRefresh,
               }}
             />
           </View>
