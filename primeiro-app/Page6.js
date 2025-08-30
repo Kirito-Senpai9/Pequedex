@@ -1,8 +1,9 @@
 // Page6.js — Tela de CRUD completo (Criar, Listar, Editar, Excluir) com todos os campos
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, Platform, ScrollView, Alert,
+  View, Text, TextInput, Pressable, StyleSheet, Platform, ScrollView, Alert, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { createPokemon, updatePokemon, deletePokemon } from './services/backend';
 
 export default function Page6({ theme, onBack, pokemons, setPokemons }) {
@@ -52,6 +53,44 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
     setAnimatedUrl(String(p?.sprites?.animated ?? ''));
   };
 
+  const pickStaticImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à galeria.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && !result.cancelled) {
+      const asset = result.assets ? result.assets[0] : result;
+      const uri = asset.uri;
+      const ext = (uri.split('.').pop() || 'png').toLowerCase();
+      setStaticUrl(`data:image/${ext};base64,${asset.base64}`);
+    }
+  };
+
+  const pickAnimatedImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à galeria.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      base64: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && !result.cancelled) {
+      const asset = result.assets ? result.assets[0] : result;
+      const uri = asset.uri;
+      const ext = (uri.split('.').pop() || 'png').toLowerCase();
+      setAnimatedUrl(`data:image/${ext};base64,${asset.base64}`);
+    }
+  };
+
   const filteredPokemons = pokemons.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -83,7 +122,18 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
     };
   };
 
+  const isValidImageSrc = (url) =>
+    /^https:\/\/.+/.test(url) || /^data:image\/\w+;base64,.+/.test(url);
+
   const handleSave = async () => {
+    if (staticUrl && !isValidImageSrc(staticUrl.trim())) {
+      Alert.alert('Validação', 'Imagem estática inválida. Use URL https:// ou Data URI base64.');
+      return;
+    }
+    if (animatedUrl && !isValidImageSrc(animatedUrl.trim())) {
+      Alert.alert('Validação', 'Imagem animada inválida. Use URL https:// ou Data URI base64.');
+      return;
+    }
     const payload = buildPayload();
 
     if (!payload.name) {
@@ -224,23 +274,33 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
             </View>
           </View>
 
-          <Text style={[styles.label, { color: theme.text }]}>Imagem estática (.png)</Text>
-          <TextInput
-            value={staticUrl}
-            onChangeText={setStaticUrl}
-            placeholder="https://..."
-            placeholderTextColor={theme.subtle}
-            style={[styles.input, { color: theme.text, borderColor: theme.subtle }]}
-          />
+          <Text style={[styles.label, { color: theme.text }]}>Imagem estática (.png/.jpg)</Text>
+          {staticUrl ? <Image source={{ uri: staticUrl }} style={{ width: 80, height: 80, marginVertical: 4, borderRadius: 8 }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput
+              style={[styles.input, { color: theme.text, borderColor: theme.subtle, flex: 1 }]}
+              placeholder="https:// (ou data:image/...;base64,...)"
+              value={staticUrl}
+              onChangeText={setStaticUrl}
+            />
+            <Pressable onPress={pickStaticImage} style={[styles.smallBtn, { marginLeft: 8 }]}>
+              <Text style={{ color: theme.text }}>Selecionar</Text>
+            </Pressable>
+          </View>
 
-          <Text style={[styles.label, { color: theme.text }]}>Imagem animada (.gif)</Text>
-          <TextInput
-            value={animatedUrl}
-            onChangeText={setAnimatedUrl}
-            placeholder="https://..."
-            placeholderTextColor={theme.subtle}
-            style={[styles.input, { color: theme.text, borderColor: theme.subtle }]}
-          />
+          <Text style={[styles.label, { color: theme.text }]}>Imagem animada (GIF ou estática)</Text>
+          {animatedUrl ? <Image source={{ uri: animatedUrl }} style={{ width: 80, height: 80, marginVertical: 4, borderRadius: 8 }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput
+              style={[styles.input, { color: theme.text, borderColor: theme.subtle, flex: 1 }]}
+              placeholder="https:// (ou data:image/...;base64,...)"
+              value={animatedUrl}
+              onChangeText={setAnimatedUrl}
+            />
+            <Pressable onPress={pickAnimatedImage} style={[styles.smallBtn, { marginLeft: 8 }]}>
+              <Text style={{ color: theme.text }}>Selecionar</Text>
+            </Pressable>
+          </View>
 
           <View style={[styles.row, { marginTop: 12 }]}>
             <Pressable onPress={resetForm} style={[styles.btn, { borderColor: theme.subtle }]}>

@@ -51,7 +51,10 @@ const StatBar = ({ label, value, theme }) => {
 
 // Card do Pokémon
 const PokemonCard = ({ item, theme, onLongPress, onPress }) => {
-  const imageUrl = item.sprites?.officialArtwork;
+  const imageUrl =
+    item.sprites?.officialArtwork ||
+    item.sprites?.frontDefault ||
+    item.sprites?.animated;
   return (
     <TouchableOpacity
       style={[styles.pokemonBox, { backgroundColor: theme.card }]}
@@ -88,34 +91,22 @@ export default function Page2({
   const [modalVisible, setModalVisible] = useState(false);
   const [innerPage, setInnerPage] = useState(0);
 
-  // --- NOVO: controla a URI exibida no popup (GIF -> artwork -> placeholder) ---
+  // --- NOVO: controla a URI exibida no popup (GIF -> artwork -> frontDefault -> placeholder) ---
   const [gifUri, setGifUri] = useState(null);
+  const animated = selectedPokemon?.sprites?.animated;
+  const official = selectedPokemon?.sprites?.officialArtwork;
+  const front = selectedPokemon?.sprites?.frontDefault;
 
   useEffect(() => {
     if (!selectedPokemon) {
       setGifUri(null);
       return;
     }
-    const animated = selectedPokemon?.sprites?.animated;
-    const official = selectedPokemon?.sprites?.officialArtwork;
-
-    const hasAnimated = typeof animated === "string" && animated.trim().length > 0;
-    const hasOfficial = typeof official === "string" && official.trim().length > 0;
-
-    setGifUri(hasAnimated ? animated : hasOfficial ? official : null);
-  }, [selectedPokemon]);
-
-  const handleGifError = () => {
-    // Se o GIF falhar, tenta a oficial; se já estiver na oficial ou não existir, usa placeholder
-    const official = selectedPokemon?.sprites?.officialArtwork;
-    const hasOfficial = typeof official === "string" && official.trim().length > 0;
-
-    if (gifUri && hasOfficial && gifUri !== official) {
-      setGifUri(official);
-    } else {
-      setGifUri(null); // força placeholder
-    }
-  };
+    const hasAnimated = !!(animated && animated.trim());
+    const hasOfficial = !!(official && official.trim());
+    const hasFront = !!(front && front.trim());
+    setGifUri(hasAnimated ? animated : hasOfficial ? official : hasFront ? front : null);
+  }, [selectedPokemon, animated, official, front]);
   // ---------------------------------------------------------------------------
 
   const handleCardPress = (pokemon) => {
@@ -207,17 +198,14 @@ export default function Page2({
             <View style={[styles.gifPopup, { backgroundColor: theme.card }]}>
               {gifUri ? (
                 <Image
-                  key={`${selectedPokemon.id}-${gifUri}`} // força remount ao trocar de pokémon/uri
+                  key={`${selectedPokemon.id}-${gifUri}`}
                   source={{ uri: gifUri }}
                   style={styles.gifImage}
-                  onError={handleGifError}
-                />
-              ) : selectedPokemon?.sprites?.officialArtwork ? (
-                <Image
-                  key={`${selectedPokemon.id}-official`}
-                  source={{ uri: selectedPokemon.sprites.officialArtwork }}
-                  style={styles.gifImage}
-                  onError={() => setGifUri(null)}
+                  onError={() => {
+                    if (gifUri === animated && official) setGifUri(official);
+                    else if ((gifUri === animated || gifUri === official) && front) setGifUri(front);
+                    else setGifUri(null);
+                  }}
                 />
               ) : (
                 <Image

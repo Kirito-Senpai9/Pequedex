@@ -7,7 +7,8 @@ const fs = require('fs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Aumenta limite para aceitar Data URIs base64 (~20 MB)
+app.use(express.json({ limit: '20mb' }));
 
 // ===== SSL (Aiven exige TLS) =====
 let caPem;
