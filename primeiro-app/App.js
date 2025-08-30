@@ -13,7 +13,7 @@ import Page6 from './Page6'; // <<< NOVO
 import AnimatedBackground from './AnimatedBackground';
 import { typography } from './styles/typography';
 
-import { fetchAllPokemons } from './services/pokeapi';
+import { listPokemons } from './services/backend';
 
 const lightTheme = { bg: 'transparent', card: 'rgba(255, 255, 255, 0.85)', primary: '#EF4444', text: '#111827', subtle: '#9CA3AF' };
 const darkTheme = { bg: 'transparent', card: 'rgba(31, 41, 55, 0.85)', primary: '#FBBF24', text: '#F9FAFB', subtle: '#778DA9' };
@@ -55,11 +55,11 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await fetchAllPokemons(1000);
+        const data = await listPokemons();
         setPokemons(data);
         setFilteredPokemons(data);
       } catch (e) {
-        console.log('Falha ao buscar Pokémon da PokeAPI:', e?.message);
+        console.log('Falha ao buscar Pokémon:', e?.message);
         setError('Falha ao carregar Pokémon.');
       } finally {
         setLoading(false);
