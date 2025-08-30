@@ -1,6 +1,6 @@
 // primeiro-app/apiUrl.js
 
 export function getApiBaseUrl() {
-  return 'https://seu-backend.onrender.com';
+  return 'https://pequedex.onrender.com';
 }
 

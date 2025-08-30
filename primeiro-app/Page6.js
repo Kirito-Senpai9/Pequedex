@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, Platform, ScrollView, Alert,
 } from 'react-native';
+import { createPokemon, updatePokemon, deletePokemon } from './services/backend';
 
 export default function Page6({ theme, onBack, pokemons, setPokemons }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,7 +21,8 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
   const [speed, setSpeed] = useState('10');
   const [height, setHeight] = useState('0.4');
   const [weight, setWeight] = useState('6');
-  const [spriteUrl, setSpriteUrl] = useState('');
+  const [staticUrl, setStaticUrl] = useState('');
+  const [animatedUrl, setAnimatedUrl] = useState('');
 
   const resetForm = () => {
     setEditingId(null);
@@ -29,7 +31,8 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
     setAbilitiesText('');
     setHp('10'); setAttack('10'); setDefense('10'); setSpAtk('10'); setSpDef('10'); setSpeed('10');
     setHeight('0.4'); setWeight('6');
-    setSpriteUrl('');
+    setStaticUrl('');
+    setAnimatedUrl('');
   };
 
   const fillFormFromPokemon = (p) => {
@@ -45,7 +48,8 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
     setSpeed(String(p?.stats?.speed ?? 10));
     setHeight(String(p?.height ?? 0.4));
     setWeight(String(p?.weight ?? 6));
-    setSpriteUrl(String(p?.sprites?.frontDefault ?? ''));
+    setStaticUrl(String(p?.sprites?.frontDefault ?? ''));
+    setAnimatedUrl(String(p?.sprites?.animated ?? ''));
   };
 
   const filteredPokemons = pokemons.filter((p) =>
@@ -65,7 +69,8 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
       speed: Number(speed) || 0,
     };
     const sprites = {};
-    if (spriteUrl.trim()) sprites.frontDefault = spriteUrl.trim();
+    if (staticUrl.trim()) sprites.frontDefault = staticUrl.trim();
+    if (animatedUrl.trim()) sprites.animated = animatedUrl.trim();
 
     return {
       name: name.trim(),
@@ -78,7 +83,7 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
     };
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const payload = buildPayload();
 
     if (!payload.name) {
@@ -90,18 +95,20 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
       return;
     }
 
-    if (editingId) {
-      setPokemons(prev => prev.map(p => (p.id === editingId ? { ...p, ...payload, id: editingId } : p)));
-      Alert.alert('Sucesso', `Pokémon "${payload.name}" atualizado! (somente local)`);
-    } else {
-      setPokemons(prev => {
-        const newId = prev.length > 0 ? Math.max(...prev.map(p => p.id)) + 1 : 1;
-        const data = { id: newId, ...payload };
-        return [data, ...prev];
-      });
-      Alert.alert('Sucesso', `Pokémon "${payload.name}" criado! (somente local)`);
+    try {
+      if (editingId) {
+        const updated = await updatePokemon(editingId, payload);
+        setPokemons(prev => prev.map(p => (p.id === editingId ? updated : p)));
+        Alert.alert('Sucesso', `Pokémon atualizado!`);
+      } else {
+        const created = await createPokemon(payload);
+        setPokemons(prev => [created, ...prev]);
+        Alert.alert('Sucesso', `Pokémon criado!`);
+      }
+      resetForm();
+    } catch (err) {
+      Alert.alert('Erro', err.message);
     }
-    resetForm();
   };
 
   const handleEdit = (p) => {
@@ -117,10 +124,15 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => {
-            setPokemons(prev => prev.filter(x => x.id !== p.id));
-            if (editingId === p.id) resetForm();
-            Alert.alert('Excluído', `"${p.name}" foi removido. (somente local)`);
+          onPress: async () => {
+            try {
+              await deletePokemon(p.id);
+              setPokemons(prev => prev.filter(x => x.id !== p.id));
+              if (editingId === p.id) resetForm();
+              Alert.alert('Excluído', `"${p.name}" foi removido.`);
+            } catch (err) {
+              Alert.alert('Erro', err.message);
+            }
           }
         }
       ]
@@ -140,7 +152,7 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={{ color: theme.text, opacity: 0.7, marginBottom: 8 }}>
-          Alterações não são persistidas (dados via PokeAPI).
+          Gerencie os Pokémon persistidos no backend.
         </Text>
         {/* FORMULÁRIO */}
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.subtle }]}> 
@@ -212,10 +224,19 @@ export default function Page6({ theme, onBack, pokemons, setPokemons }) {
             </View>
           </View>
 
-          <Text style={[styles.label, { color: theme.text }]}>Sprite (URL)</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Imagem estática (.png)</Text>
           <TextInput
-            value={spriteUrl}
-            onChangeText={setSpriteUrl}
+            value={staticUrl}
+            onChangeText={setStaticUrl}
+            placeholder="https://..."
+            placeholderTextColor={theme.subtle}
+            style={[styles.input, { color: theme.text, borderColor: theme.subtle }]}
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Imagem animada (.gif)</Text>
+          <TextInput
+            value={animatedUrl}
+            onChangeText={setAnimatedUrl}
             placeholder="https://..."
             placeholderTextColor={theme.subtle}
             style={[styles.input, { color: theme.text, borderColor: theme.subtle }]}
