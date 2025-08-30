@@ -93,20 +93,21 @@ export default function Page2({
 
   // --- NOVO: controla a URI exibida no popup (GIF -> artwork -> frontDefault -> placeholder) ---
   const [gifUri, setGifUri] = useState(null);
-  const animated = selectedPokemon?.sprites?.animated;
-  const official = selectedPokemon?.sprites?.officialArtwork;
-  const front = selectedPokemon?.sprites?.frontDefault;
 
   useEffect(() => {
     if (!selectedPokemon) {
       setGifUri(null);
       return;
     }
+    const sprites = selectedPokemon?.sprites || {};
+    const animated = sprites.animated;
+    const official = sprites.officialArtwork;
+    const front = sprites.frontDefault;
     const hasAnimated = !!(animated && animated.trim());
     const hasOfficial = !!(official && official.trim());
     const hasFront = !!(front && front.trim());
     setGifUri(hasAnimated ? animated : hasOfficial ? official : hasFront ? front : null);
-  }, [selectedPokemon, animated, official, front]);
+  }, [selectedPokemon?.id, modalVisible]);
   // ---------------------------------------------------------------------------
 
   const handleCardPress = (pokemon) => {
@@ -114,7 +115,8 @@ export default function Page2({
   };
 
   const handleLongPressPokemon = (pokemon) => {
-    setSelectedPokemon(pokemon);
+    // força nova referência para disparar o efeito
+    setSelectedPokemon({ ...pokemon });
     setModalVisible(true);
   };
 
@@ -122,6 +124,7 @@ export default function Page2({
     setModalVisible(false);
     setInnerPage(0);
     setGifUri(null);
+    setSelectedPokemon(null);
   };
 
   if (loading) {
@@ -198,10 +201,14 @@ export default function Page2({
             <View style={[styles.gifPopup, { backgroundColor: theme.card }]}>
               {gifUri ? (
                 <Image
-                  key={`${selectedPokemon.id}-${gifUri}`}
+                  key={`${selectedPokemon?.id}-${modalVisible ? 'on' : 'off'}`}
                   source={{ uri: gifUri }}
                   style={styles.gifImage}
                   onError={() => {
+                    const sprites = selectedPokemon?.sprites || {};
+                    const animated = sprites.animated;
+                    const official = sprites.officialArtwork;
+                    const front = sprites.frontDefault;
                     if (gifUri === animated && official) setGifUri(official);
                     else if ((gifUri === animated || gifUri === official) && front) setGifUri(front);
                     else setGifUri(null);
@@ -209,7 +216,7 @@ export default function Page2({
                 />
               ) : (
                 <Image
-                  key={`${selectedPokemon.id}-placeholder`}
+                  key={`${selectedPokemon?.id}-${modalVisible ? 'on' : 'off'}`}
                   source={POKEBALL_PLACEHOLDER}
                   style={[styles.gifImage, { tintColor: theme.subtle }]}
                 />
