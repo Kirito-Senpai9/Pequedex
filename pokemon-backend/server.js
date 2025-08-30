@@ -3,22 +3,33 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ====== DB: conexão + criação da tabela ======
+// ===== SSL (Aiven exige TLS) =====
+let caPem;
+if (process.env.DB_CA_FILE && fs.existsSync(process.env.DB_CA_FILE)) {
+  caPem = fs.readFileSync(process.env.DB_CA_FILE, 'utf8');
+} else if (process.env.DB_CA_CERT) {
+  caPem = process.env.DB_CA_CERT;
+}
+
+// ===== Pool MySQL =====
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 3306,
+  port: Number(process.env.DB_PORT) || 3306,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10
+  connectionLimit: 10,
+  ssl: { rejectUnauthorized: true, ca: caPem }
 });
 
+// Cria tabela
 (async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS pokemons (
@@ -34,17 +45,63 @@ const pool = mysql.createPool({
   `);
 })();
 
-// ====== Helpers de conversão ======
+// ===== Helpers de parse =====
+function parseArray(val) {
+  if (val == null) return [];
+  // se já é array
+  if (Array.isArray(val)) return val;
+  // tentar JSON primeiro
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return [];
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed;
+      if (typeof parsed === 'string') {
+        return parsed.split(',').map(x => x.trim()).filter(Boolean);
+      }
+      // objeto -> pega valores (fallback)
+      if (parsed && typeof parsed === 'object') {
+        return Object.values(parsed);
+      }
+    } catch {
+      // não é JSON -> tratar como CSV
+      return s.split(',').map(x => x.trim()).filter(Boolean);
+    }
+  }
+  // objeto simples vira lista de valores; primitivo vira lista singleton
+  if (typeof val === 'object') return Object.values(val);
+  return String(val).trim() ? [String(val).trim()] : [];
+}
+
+function parseObject(val) {
+  if (val == null) return {};
+  if (typeof val === 'object' && !Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return {};
+    try {
+      const parsed = JSON.parse(s);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      // se veio string (ex.: "hp:45,atk:49"), não há formato padronizado -> retorna vazio
+      return {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 function mapRow(row) {
   return {
     id: row.id,
     name: row.name,
-    types: JSON.parse(row.types || '[]'),
-    stats: JSON.parse(row.stats || '{}'),
+    types: parseArray(row.types),
+    stats: parseObject(row.stats),
     height: row.height,
     weight: row.weight,
-    abilities: JSON.parse(row.abilities || '[]'),
-    sprites: JSON.parse(row.sprites || '{}')
+    abilities: parseArray(row.abilities),
+    sprites: parseObject(row.sprites)
   };
 }
 
@@ -59,13 +116,19 @@ function toDbPayload(body) {
     sprites = {}
   } = body;
 
-  return { name, types, stats, height, weight, abilities, sprites };
+  return {
+    name,
+    types: JSON.stringify(types),
+    stats: JSON.stringify(stats),
+    height,
+    weight,
+    abilities: JSON.stringify(abilities),
+    sprites: JSON.stringify(sprites)
+  };
 }
 
-// ====== CRUD ======
-
-// LISTAR TODOS
-app.get('/api/pokemons', async (req, res) => {
+// ===== CRUD =====
+app.get('/api/pokemons', async (_req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM pokemons');
     res.json(rows.map(mapRow));
@@ -74,7 +137,6 @@ app.get('/api/pokemons', async (req, res) => {
   }
 });
 
-// OBTER POR ID
 app.get('/api/pokemons/:id', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM pokemons WHERE id = ?', [req.params.id]);
@@ -85,7 +147,6 @@ app.get('/api/pokemons/:id', async (req, res) => {
   }
 });
 
-// CRIAR
 app.post('/api/pokemons', async (req, res) => {
   try {
     const p = toDbPayload(req.body);
@@ -102,7 +163,6 @@ app.post('/api/pokemons', async (req, res) => {
   }
 });
 
-// ATUALIZAR
 app.put('/api/pokemons/:id', async (req, res) => {
   try {
     const p = toDbPayload(req.body);
@@ -121,7 +181,6 @@ app.put('/api/pokemons/:id', async (req, res) => {
   }
 });
 
-// EXCLUIR
 app.delete('/api/pokemons/:id', async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM pokemons WHERE id = ?', [req.params.id]);
@@ -132,9 +191,8 @@ app.delete('/api/pokemons/:id', async (req, res) => {
   }
 });
 
-// ====== Start ======
+// ===== Start =====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API rodando na porta ${PORT}`);
 });
-
