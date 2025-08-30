@@ -1,6 +1,4 @@
 // primeiro-app/apiUrl.js
 
-export function getApiBaseUrl() {
-  return 'https://pequedex.onrender.com';
-}
+export const API_URL = 'https://pequedex.onrender.com';
 

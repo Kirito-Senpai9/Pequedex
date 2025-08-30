@@ -17,8 +17,7 @@ import {
 } from "react-native";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import { typography } from "./styles/typography";
-
-const POKEBALL_PLACEHOLDER = require("./assets/pokeball.png");
+const PLACEHOLDER_IMAGE = require("./assets/icon.png");
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 // Componente para as barras de stats (do Código 1)
@@ -66,7 +65,7 @@ const PokemonCard = ({ item, theme, onLongPress, onPress }) => {
         <Image source={{ uri: imageUrl }} style={styles.pokemonImage} />
       ) : (
         <Image
-          source={POKEBALL_PLACEHOLDER}
+          source={PLACEHOLDER_IMAGE}
           style={[styles.pokemonImage, { tintColor: theme.subtle }]}
         />
       )}
@@ -79,6 +78,7 @@ export default function Page2({
   theme,
   pokemons,
   loading,
+  refreshing,
   searchQuery,
   setSearchQuery,
   handleBackPage1,
@@ -86,6 +86,7 @@ export default function Page2({
   selectionMode,
   handleSelectPokemon,
   error,
+  onRefresh,
 }) {
   const [selectedPokemon, setSelectedPokemon] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -170,11 +171,13 @@ export default function Page2({
         </Pressable>
       </View>
 
+      {/* Overlay de refresh removido: usamos o indicador padrão do FlatList */}
+
       {/* LISTA DE POKÉMON */}
       <FlatList
         style={styles.list}
         data={filteredPokemons}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(it) => String(it.id)}
         numColumns={2}
         renderItem={({ item }) => (
           <PokemonCard
@@ -184,13 +187,20 @@ export default function Page2({
             onPress={handleCardPress}
           />
         )}
-        ListEmptyComponent={() => (
-          <View style={styles.statusContainer}>
-            <Text style={[styles.statusText, { color: theme.text }]}>
-              {error || 'Nenhum Pokémon encontrado.'}
-            </Text>
-          </View>
-        )}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}
+        ListEmptyComponent={() =>
+          loading ? (
+            <View style={{ height: 120 }} />
+          ) : (
+            <View style={styles.statusContainer}>
+              <Text style={[styles.statusText, { color: theme.text }]}>
+                {error || 'Nenhum Pokémon encontrado.'}
+              </Text>
+            </View>
+          )
+        }
       />
 
       {/* MODAL POPUP (Código 1) */}
@@ -217,7 +227,7 @@ export default function Page2({
               ) : (
                 <Image
                   key={`${selectedPokemon?.id}-${modalVisible ? 'on' : 'off'}`}
-                  source={POKEBALL_PLACEHOLDER}
+                  source={PLACEHOLDER_IMAGE}
                   style={[styles.gifImage, { tintColor: theme.subtle }]}
                 />
               )}
