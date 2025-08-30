@@ -16,6 +16,9 @@ logs
 *.db
 *.sqlite
 
+# Environment variables
+.env
+
 # ============================
 # React Native / Expo (primeiro-app)
 # ============================
